@@ -1,0 +1,43 @@
+networks:
+  ai-platform:
+    external: true
+services:
+  vllm-mcp-bridge:
+    build:
+      context: /home/keith/deepmcp-integration
+      dockerfile: Dockerfile.vllm
+    depends_on:
+    - mcp-integration-hub
+    environment:
+    - MCP_HUB_URL=http://mcp-integration-hub:11010
+    - VLLM_ENDPOINT=http://vllm-server:8000
+    networks:
+    - ai-platform
+    ports:
+    - 11011:11011
+    restart: unless-stopped
+  vllm-server:
+    command:
+    - --model
+    - meta-llama/Llama-3.1-8B-Instruct
+    - --served-model-name
+    - llama-3.1-8b-instruct
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8000'
+    - --tensor-parallel-size
+    - '1'
+    environment:
+    - CUDA_VISIBLE_DEVICES=0
+    image: vllm/vllm-openai:latest
+    networks:
+    - ai-platform
+    ports:
+    - 11002:8000
+    restart: unless-stopped
+    runtime: nvidia
+    volumes:
+    - /opt/ai-research-platform/models:/models
+    - /tmp:/tmp
+version: '3.8'

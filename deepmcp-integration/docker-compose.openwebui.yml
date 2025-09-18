@@ -1,0 +1,37 @@
+networks:
+  ai-platform:
+    external: true
+services:
+  mcp-integration-hub:
+    build:
+      context: /home/keith/deepmcp-integration
+      dockerfile: Dockerfile
+    environment:
+    - MCP_SERVERS_PATH=/mcp-servers
+    networks:
+    - ai-platform
+    ports:
+    - 11010:11010
+    restart: unless-stopped
+    volumes:
+    - /home/keith/chat-copilot/mcp-servers:/mcp-servers:ro
+  openwebui-with-mcp:
+    depends_on:
+    - mcp-integration-hub
+    environment:
+    - OPENAI_API_BASE_URL=http://localhost:11002/v1
+    - OPENAI_API_KEY=dummy-key
+    - ENABLE_FUNCTION_CALLING=true
+    - MCP_HUB_URL=http://mcp-integration-hub:11010
+    image: ghcr.io/open-webui/open-webui:main
+    networks:
+    - ai-platform
+    ports:
+    - 11001:8080
+    restart: unless-stopped
+    volumes:
+    - openwebui_data:/app/backend/data
+    - /home/keith/deepmcp-integration:/app/backend/functions/mcp:ro
+version: '3.8'
+volumes:
+  openwebui_data: {}

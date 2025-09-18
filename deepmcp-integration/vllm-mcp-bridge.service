@@ -1,0 +1,17 @@
+[Unit]
+Description=vLLM MCP Bridge Service
+After=network.target
+
+[Service]
+Type=simple
+User=ai-platform-sync
+Group=ai-platform-sync
+WorkingDirectory=/home/keith/deepmcp-integration
+Environment=PATH=/home/keith/deepmcp-integration/venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/home/keith/deepmcp-integration
+ExecStart=/home/keith/deepmcp-integration/venv/bin/python -m uvicorn vllm_mcp_bridge:app --host 0.0.0.0 --port 11011
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
