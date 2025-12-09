@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>FortiGate Network Topology</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background: #111;
+            color: #fff;
+            font-family: sans-serif;
+        }
+
+        svg {
+            width: 100%;
+            height: 100vh;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 6px;
+            pointer-events: none;
+            font-size: 12px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <svg></svg>
+    <div class="tooltip"></div>
+
+    <script>
+        const svg = d3.select("svg");
+        const g = svg.append("g");
+        const tooltip = d3.select(".tooltip");
+
+        const zoom = d3.zoom().scaleExtent([0.4, 3]).on("zoom", e => g.attr("transform", e.transform));
+        svg.call(zoom);
+
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // --- ICON HANDLER ---
+        function selectIcon(d) {
+            const t = (d.type || "").toLowerCase();
+            const n = (d.name || "").toLowerCase();
+            const v = (d.vendor || "").toLowerCase();
+
+            // Fortinet Infrastructure
+            if (t === "fortigate" || n.includes("fortigate"))
+                return "icons/Fortinet%20VSS/SVGs/FortiGate_Series_R22_2025Q2_65.svg";
+            if (t.includes("switch") || t.includes("fortiswitch"))
+                return "icons/Fortinet%20VSS/SVGs/FortiSwitch_Series_R14_2025Q2_20.svg";
+            if (t.includes("ap") || t.includes("fortiap") || n.includes("ap"))
+                return "icons/Fortinet%20VSS/SVGs/FortiAP%20Series_R8_2025Q2_24.svg";
+
+            // Clients & Others
+            if (t.includes("android") || t.includes("phone") || t.includes("ios") || n.includes("android") || n.includes("phone"))
+                return "icons/Meraki%20SVGs/Mobile%20Phone.svg";
+
+            if (t.includes("windows") || t.includes("linux") || t.includes("mac") || t.includes("ubuntu") || t.includes("server") || t.includes("debian"))
+                return "icons/Meraki%20SVGs/Laptop.svg";
+
+            // Generic Fallback
+            return "icons/Meraki%20SVGs/Laptop.svg";
+        }
+
+        // --- TOOLTIP ---
+        function showTooltip(d) {
+            tooltip.style("display", "block")
+                .html(`
+                    <div style="font-weight: bold; margin-bottom: 4px; border-bottom: 1px solid #555; padding-bottom: 2px;">
+                        ${d.name || d.hostname || "Unknown Device"}
+                    </div>
+                    <div style="display: grid; grid-template-columns: auto auto; gap: 4px 10px; text-align: left;">
+                        <span style="color: #aaa;">IP:</span> <span>${d.ip || "-"}</span>
+                        <span style="color: #aaa;">MAC:</span> <span style="font-family: monospace;">${d.mac || "-"}</span>
+                        <span style="color: #aaa;">Type:</span> <span>${d.type || "Generic"}</span>
+                        <span style="color: #aaa;">Interface:</span> <span>${d.interface || "-"}</span>
+                        ${d.vendor ? `<span style="color: #aaa;">Vendor:</span> <span>${d.vendor}</span>` : ""}
+                    </div>
+                `);
+        }
+        function hideTooltip() { tooltip.style("display", "none"); }
+
+        svg.on("mousemove", (e) => {
+            // Keep tooltip largely within viewport
+            const x = e.pageX + 15;
+            const y = e.pageY + 15;
+            tooltip.style("left", x + "px").style("top", y + "px");
+        });
+
+        // --- LIVE TOPOLOGY ---
+        function renderLiveTopology(data, icons) {
+            g.selectAll("*").remove();
+
+            const link = g.selectAll("line")
+                .data(data.links)
+                .join("line")
+                .attr("stroke", d => d.status === "up" ? "#0f0" : "#888")
+                .attr("stroke-width", 1.5)
+                .attr("opacity", 0.8);
+
+            const node = g.selectAll("g.node")
+                .data(data.nodes)
+                .join("g")
+                .attr("class", "node")
+                .attr("cursor", "pointer")
+                .on("mouseover", (_, d) => showTooltip(d))
+                .on("mouseout", hideTooltip);
+
+            node.append("image")
+                .attr("xlink:href", d => selectIcon(d))
+                .attr("width", 50)
+                .attr("height", 50)
+                .attr("x", -25)
+                .attr("y", -25);
+
+            node.append("text")
+                .text(d => d.name || d.hostname || d.ip)
+                .attr("y", 35)
+                .attr("fill", "#fff")
+                .attr("font-size", 10)
+                .attr("text-anchor", "middle");
+
+            const sim = d3.forceSimulation(data.nodes)
+                .force("link", d3.forceLink(data.links).id(d => d.id).distance(140))
+                .force("charge", d3.forceManyBody().strength(-350))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .on("tick", () => {
+                    link.attr("x1", d => d.source.x)
+                        .attr("y1", d => d.source.y)
+                        .attr("x2", d => d.target.x)
+                        .attr("y2", d => d.target.y);
+                    node.attr("transform", d => `translate(${d.x},${d.y})`);
+                });
+        }
+
+        // --- STATIC FALLBACK ---
+        function renderStaticFallback(icons) {
+            g.selectAll("*").remove();
+
+            const data = {
+                name: "Internet",
+                type: "Cloud",
+                ip: "0.0.0.0",
+                children: [
+                    {
+                        name: "FortiGate Firewall",
+                        type: "Firewall",
+                        ip: "192.168.1.1",
+                        children: [
+                            {
+                                name: "FortiSwitch",
+                                type: "Switch",
+                                ip: "192.168.1.2",
+                                children: [
+                                    { name: "End Device 1", type: "Laptop", ip: "192.168.1.10" },
+                                    { name: "End Device 2", type: "Laptop", ip: "192.168.1.11" }
+                                ]
+                            },
+                            {
+                                name: "Wireless",
+                                type: "Access Point",
+                                ip: "192.168.1.3",
+                                children: [
+                                    { name: "Wireless Device 1", type: "Smartphone", ip: "192.168.1.20" },
+                                    { name: "Wireless Device 2", type: "Smartphone", ip: "192.168.1.21" }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            };
+
+            const root = d3.hierarchy(data);
+            const treeLayout = d3.tree().size([width - 300, height - 200]);
+            treeLayout(root);
+
+            g.selectAll(".link")
+                .data(root.links())
+                .join("path")
+                .attr("fill", "none")
+                .attr("stroke", "#888")
+                .attr("stroke-width", 2)
+                .attr("d", d3.linkVertical().x(d => d.x).y(d => d.y));
+
+            const node = g.selectAll(".node")
+                .data(root.descendants())
+                .join("g")
+                .attr("class", "node")
+                .attr("transform", d => `translate(${d.x},${d.y})`)
+                .on("mouseover", (_, d) => showTooltip(d.data))
+                .on("mouseout", hideTooltip);
+
+            node.append("image")
+                .attr("xlink:href", d => selectIcon(d))
+                .attr("width", 70)
+                .attr("height", 70)
+                .attr("x", -35)
+                .attr("y", -35);
+
+            node.append("text")
+                .attr("dy", 50)
+                .attr("text-anchor", "middle")
+                .style("fill", "#fff")
+                .style("font-size", "12px")
+                .text(d => d.data.name);
+
+            g.append("text")
+                .attr("x", width / 2 - 250)
+                .attr("y", -20)
+                .text("Fortinet Network Topology (Static Demo)")
+                .style("fill", "white")
+                .style("font-size", "18px")
+                .style("font-weight", "bold");
+        }
+
+        // --- FETCH & DECIDE MODE ---
+        async function fetchAndRender() {
+            try {
+                const [icons, live] = await Promise.all([
+                    d3.json("icons/icons_manifest.json"),
+                    d3.json("/api/live")
+                ]);
+
+                window._icons = icons; // keep for WS updates
+
+                if (live && live.nodes && live.nodes.length) {
+                    console.log("✅ Live data loaded.");
+                    renderLiveTopology(live, icons);
+                    initWebSocket();  // try to switch to real-time
+                } else {
+                    console.warn("⚠️ No live data, showing static topology.");
+                    renderStaticFallback(icons);
+                }
+            } catch (err) {
+                console.warn("⚠️ Failed to load live data:", err);
+                const icons = await d3.json("icons/icons_manifest.json");
+                renderStaticFallback(icons);
+            }
+        }
+
+        // --- WEBSOCKET MODE ---
+        function initWebSocket() {
+            const wsUrl =
+                (location.protocol === "https:" ? "wss://" : "ws://") +
+                location.host +
+                "/ws/live";
+
+            try {
+                const ws = new WebSocket(wsUrl);
+                ws.onopen = () => console.log("🔌 WebSocket connected:", wsUrl);
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    console.log("📡 Live update:", data.nodes?.length ?? 0, "nodes");
+                    renderLiveTopology(data, window._icons);
+                };
+
+                ws.onclose = () => {
+                    console.warn("⚠️ WebSocket closed — retrying in 10 s");
+                    setTimeout(initWebSocket, 10000);
+                };
+
+                ws.onerror = (err) => {
+                    console.error("WebSocket error:", err);
+                    ws.close();
+                };
+            } catch (err) {
+                console.error("WebSocket init failed:", err);
+            }
+        }
+
+        // Initial load
+        fetchAndRender();
+
+        // Fallback refresh (only used if WS unavailable)
+        setInterval(() => {
+            if (!window.WebSocket || document.hidden) return;
+            if (g.selectAll("line").empty()) fetchAndRender();
+        }, 60000);
+
+    </script>
+</body>
+
+</html>
