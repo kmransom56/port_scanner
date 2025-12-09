@@ -54,21 +54,21 @@
 
             // Fortinet Infrastructure
             if (t === "fortigate" || n.includes("fortigate"))
-                return "icons/Fortinet%20VSS/SVGs/FortiGate_Series_R22_2025Q2_65.svg";
+                return "icons/fortinet_vss/svgs/FortiGate_Series_R22_2025Q2_65.svg";
             if (t.includes("switch") || t.includes("fortiswitch"))
-                return "icons/Fortinet%20VSS/SVGs/FortiSwitch_Series_R14_2025Q2_20.svg";
+                return "icons/fortinet_vss/svgs/FortiSwitch_Series_R14_2025Q2_11.svg";
             if (t.includes("ap") || t.includes("fortiap") || n.includes("ap"))
-                return "icons/Fortinet%20VSS/SVGs/FortiAP%20Series_R8_2025Q2_24.svg";
+                return "icons/fortinet_vss/svgs/FortiAP%20Series_R8_2025Q2_12.svg";
 
             // Clients & Others
             if (t.includes("android") || t.includes("phone") || t.includes("ios") || n.includes("android") || n.includes("phone"))
-                return "icons/Meraki%20SVGs/Mobile%20Phone.svg";
+                return "icons/meraki_svgs/Mobile%20Phone.svg";
 
             if (t.includes("windows") || t.includes("linux") || t.includes("mac") || t.includes("ubuntu") || t.includes("server") || t.includes("debian"))
-                return "icons/Meraki%20SVGs/Laptop.svg";
+                return "icons/meraki_svgs/Laptop.svg";
 
             // Generic Fallback
-            return "icons/Meraki%20SVGs/Laptop.svg";
+            return "icons/meraki_svgs/Laptop.svg";
         }
 
         // --- TOOLTIP ---
